@@ -21,12 +21,7 @@ A collection of 15 custom cellular automaton animations for Neovim, built on top
 
 ```lua
 {
-  'eandrju/cellular-automaton.nvim',
-  lazy = false,
-}
-
-{
-  dir = vim.fn.stdpath("config") .. "/custom-cellular-automaton.nvim",
+  '68mschmitt/custom-cellular-automaton.nvim',
   dependencies = { 'eandrju/cellular-automaton.nvim' },
   lazy = false,
   config = function()
@@ -39,11 +34,7 @@ A collection of 15 custom cellular automaton animations for Neovim, built on top
 
 ```lua
 use {
-  'eandrju/cellular-automaton.nvim',
-}
-
-use {
-  '~/path/to/custom-cellular-automaton.nvim',
+  '68mschmitt/custom-cellular-automaton.nvim',
   requires = { 'eandrju/cellular-automaton.nvim' },
   config = function()
     require('custom-cellular-automaton').setup()
