@@ -52,10 +52,10 @@ local function exp_sample(mean)
 end
 
 local function snapshot_particles(grid)
-  local rows, cols = #grid, #grid[1]
+  local rows = #grid
   local parts = {}
   for r = 1, rows do
-    for c = 1, cols do
+    for c = 1, #grid[r] do  -- Use actual row length
       local ch = grid[r][c].char
       local ignore = IGNORE and IGNORE[ch]
       if not ignore and ch and ch ~= "" then
@@ -73,9 +73,9 @@ local function snapshot_particles(grid)
 end
 
 local function clear_grid(grid)
-  local rows, cols = #grid, #grid[1]
+  local rows = #grid
   for r = 1, rows do
-    for c = 1, cols do
+    for c = 1, #grid[r] do  -- Use actual row length
       grid[r][c].char = " "
     end
   end
@@ -85,25 +85,35 @@ local function draw_baseline_intact(grid, parts)
   -- Draw only the characters that are still "stuck" in their original spots.
   for _, p in ipairs(parts) do
     if p.state == "stuck" then
-      grid[p.r0][p.c0].char = p.ch
+      -- Check bounds before accessing
+      if p.r0 <= #grid and p.c0 <= #grid[p.r0] then
+        grid[p.r0][p.c0].char = p.ch
+      end
     end
   end
 end
 
 local function draw_hole(grid, cr, cc, radius)
-  local rows, cols = #grid, #grid[1]
+  local rows = #grid
+  local max_cols = 0
+  for r = 1, rows do
+    max_cols = math.max(max_cols, #grid[r])
+  end
   local bands = #HOLE_CHARS
   local rceil = math.ceil(radius) + bands + 1
   local rmin, rmax = clamp(cr - rceil, 1, rows), clamp(cr + rceil, 1, rows)
-  local cmin, cmax = clamp(cc - rceil, 1, cols), clamp(cc + rceil, 1, cols)
+  local cmin, cmax = clamp(cc - rceil, 1, max_cols), clamp(cc + rceil, 1, max_cols)
 
   for r = rmin, rmax do
     for c = cmin, cmax do
-      local d = dist(r - cr, c - cc)
-      if d <= radius + bands - 1 then
-        local band = math.floor(clamp((d - radius) + 1, 1, bands))
-        if d <= radius then band = 1 end
-        grid[r][c].char = HOLE_CHARS[band]
+      -- Check if this cell exists in the current row
+      if c <= #grid[r] then
+        local d = dist(r - cr, c - cc)
+        if d <= radius + bands - 1 then
+          local band = math.floor(clamp((d - radius) + 1, 1, bands))
+          if d <= radius then band = 1 end
+          grid[r][c].char = HOLE_CHARS[band]
+        end
       end
     end
   end
@@ -121,8 +131,12 @@ local cfg = {
   name = "blackhole_breakaway",
   init = function(grid)
     math.randomseed(os.time())
-    local rows, cols = #grid, #grid[1]
-    center_r, center_c = get_center(rows, cols)
+    local rows = #grid
+    local max_cols = 0
+    for r = 1, rows do
+      max_cols = math.max(max_cols, #grid[r])
+    end
+    center_r, center_c = get_center(rows, max_cols)
     parts = snapshot_particles(grid)
     total = #parts
     swallowed = 0
@@ -139,7 +153,11 @@ local cfg = {
 
 cfg.update = function(grid)
   t_global = t_global + 1.0 / FPS
-  local rows, cols = #grid, #grid[1]
+  local rows = #grid
+  local max_cols = 0
+  for r = 1, rows do
+    max_cols = math.max(max_cols, #grid[r])
+  end
 
   -- Start with a clean slate; we'll draw intact text, free particles, then hole.
   clear_grid(grid)
@@ -202,8 +220,8 @@ cfg.update = function(grid)
         else
           -- Clamp to screen
           rr = clamp(rr, 1, rows)
-          cc = clamp(cc, 1, cols)
-          local key = rr * (cols + 1) + cc  -- simple unique key
+          cc = clamp(cc, 1, max_cols)
+          local key = rr * (max_cols + 1) + cc  -- simple unique key
           local dcur = dist(rr - center_r, cc - center_c)
 
           -- Keep nearer-to-center char on collisions
@@ -220,11 +238,14 @@ cfg.update = function(grid)
 
   -- Draw the placed FREE particles (they override stuck text at their landing spots)
   for key, val in pairs(placed) do
-    local cc = key % (cols + 1)
-    local rr = (key - cc) / (cols + 1)
+    local cc = key % (max_cols + 1)
+    local rr = (key - cc) / (max_cols + 1)
     rr = clamp(rr, 1, rows)
-    cc = clamp(cc, 1, cols)
-    grid[rr][cc].char = val.ch
+    cc = clamp(cc, 1, max_cols)
+    -- Check bounds before writing
+    if rr <= #grid and cc <= #grid[rr] then
+      grid[rr][cc].char = val.ch
+    end
   end
 
   -- Finally draw the black hole so its rings are visible on top

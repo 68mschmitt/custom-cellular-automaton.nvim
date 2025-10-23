@@ -15,6 +15,8 @@ A collection of 15 custom cellular automaton animations for Neovim, built on top
 - Neovim >= 0.8.0
 - [cellular-automaton.nvim](https://github.com/Eandrju/cellular-automaton.nvim)
 
+> **Note:** This plugin currently uses a forked version of `cellular-automaton.nvim` as a dependency to address an issue. A [pull request](https://github.com/Eandrju/cellular-automaton.nvim/pull/38) has been submitted to fix this in the upstream repository, but it has not yet been merged.
+
 ## Installation
 
 ### Using [lazy.nvim](https://github.com/folke/lazy.nvim)
@@ -22,7 +24,7 @@ A collection of 15 custom cellular automaton animations for Neovim, built on top
 ```lua
 {
   '68mschmitt/custom-cellular-automaton.nvim',
-  dependencies = { 'eandrju/cellular-automaton.nvim' },
+  dependencies = { '68mschmitt/cellular-automaton.nvim' },
   lazy = false,
   config = function()
     require('custom-cellular-automaton').setup()
@@ -35,7 +37,7 @@ A collection of 15 custom cellular automaton animations for Neovim, built on top
 ```lua
 use {
   '68mschmitt/custom-cellular-automaton.nvim',
-  requires = { 'eandrju/cellular-automaton.nvim' },
+  requires = { '68mschmitt/cellular-automaton.nvim' },
   config = function()
     require('custom-cellular-automaton').setup()
   end
