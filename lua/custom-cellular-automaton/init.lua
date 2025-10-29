@@ -24,6 +24,7 @@ local animations = {
   "slide-left",
   "snowfall",
   "snowtown",
+  "spin-wheel",
   "star-wars",
   "updraft",
   "wisp",

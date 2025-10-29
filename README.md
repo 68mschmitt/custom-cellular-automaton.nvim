@@ -1,10 +1,10 @@
 # custom-cellular-automaton.nvim
 
-A collection of 15 custom cellular automaton animations for Neovim, built on top of [eandrju/cellular-automaton.nvim](https://github.com/Eandrju/cellular-automaton.nvim).
+A collection of 16 custom cellular automaton animations for Neovim, built on top of [eandrju/cellular-automaton.nvim](https://github.com/Eandrju/cellular-automaton.nvim).
 
 ## Features
 
-- 🎨 **15 Unique Animations** - From black holes to snowfall, matrix effects to fireworks
+- 🎨 **16 Unique Animations** - From black holes to snowfall, matrix effects to fireworks
 - 🔧 **Easy Configuration** - Enable/disable specific animations with simple setup
 - 🚀 **Auto-registration** - All animations load automatically on plugin initialization
 - 🎯 **Modular Design** - Each animation is self-contained and follows consistent patterns
@@ -91,6 +91,9 @@ Characters rise upward in a thermal updraft effect.
 ### 15. **Wisp** (`wisp`)
 Ethereal floating particles drift across the screen with smooth motion.
 
+### 16. **Spin Wheel** (`spin_wheel`)
+An animated carnival-style spin wheel that randomly selects from visually selected lines. Features a fixed arrow pointer, smooth spinning with natural deceleration, and dynamically sized wheel based on the longest label (up to 20 characters). The wheel automatically scales to accommodate your labels - longer labels create bigger wheels. Select text in visual mode before running to populate the wheel labels.
+
 ## Usage
 
 ### Running Animations
@@ -99,6 +102,22 @@ All animations are registered with cellular-automaton.nvim and can be triggered 
 
 ```vim
 :CellularAutomaton <animation_name>
+```
+
+### Spin Wheel Special Usage
+
+The spin wheel animation works with visual selections. There are two ways to use it:
+
+**Method 1: Using the SpinWheel command (Recommended)**
+```vim
+" Select lines in visual mode, then run:
+:'<,'>SpinWheel
+```
+
+**Method 2: Using the standard CellularAutomaton command**
+```vim
+" Select lines in visual mode, then run:
+:'<,'>CellularAutomaton spin_wheel
 ```
 
 ### Example Keybindings
@@ -115,6 +134,9 @@ end, { desc = "Black hole animation" })
 vim.keymap.set("n", "<leader>st", function() 
   vim.cmd([[CellularAutomaton snowtown]]) 
 end, { desc = "Snowtown animation" })
+
+-- Spin wheel with visual selection
+vim.keymap.set("v", "<leader>sw", "<Cmd>SpinWheel<CR>", { desc = "Spin wheel selector" })
 ```
 
 ## Configuration
@@ -173,6 +195,7 @@ require('custom-cellular-automaton').setup({
 | Slide Left | `slide_left_safe` | Rotate text left |
 | Snowfall | `snowfall` | Falling snow |
 | Snowtown | `snowtown` | Winter scene with objects |
+| Spin Wheel | `spin_wheel` | Carnival wheel selector |
 | Star Wars | `star_wars` | Opening crawl effect |
 | Updraft | `updraft` | Rising characters |
 | Wisp | `wisp` | Floating particles |
