@@ -1,10 +1,10 @@
 # custom-cellular-automaton.nvim
 
-A collection of 16 custom cellular automaton animations for Neovim, built on top of [eandrju/cellular-automaton.nvim](https://github.com/Eandrju/cellular-automaton.nvim).
+A collection of 18 custom cellular automaton animations for Neovim, built on top of [eandrju/cellular-automaton.nvim](https://github.com/Eandrju/cellular-automaton.nvim).
 
 ## Features
 
-- 🎨 **16 Unique Animations** - From black holes to snowfall, matrix effects to fireworks
+- 🎨 **18 Unique Animations** - From black holes to snowfall, matrix effects to fireworks
 - 🔧 **Easy Configuration** - Enable/disable specific animations with simple setup
 - 🚀 **Auto-registration** - All animations load automatically on plugin initialization
 - 🎯 **Modular Design** - Each animation is self-contained and follows consistent patterns
@@ -93,6 +93,12 @@ Ethereal floating particles drift across the screen with smooth motion.
 
 ### 16. **Spin Wheel** (`spin_wheel`)
 An animated carnival-style spin wheel that randomly selects from visually selected lines. Features a fixed arrow pointer, smooth spinning with natural deceleration, and dynamically sized wheel based on the longest label (up to 20 characters). The wheel automatically scales to accommodate your labels - longer labels create bigger wheels. Select text in visual mode before running to populate the wheel labels.
+
+### 17. **Plinko** (`plinko`)
+A full-screen Plinko/Galton board where balls drop from the top, bounce off pegs, and settle into buckets labeled from your visually selected lines. The bucket with the most balls is declared the winner.
+
+### 18. **Supernova** (`supernova`)
+Every character collapses inward toward a single point, heating from dim to white-hot as it implodes. The core flashes, then detonates outward as cooling debris while expanding shockwave rings sweep the screen, ending in a brief field of dim twinkling stardust.
 
 ## Usage
 
