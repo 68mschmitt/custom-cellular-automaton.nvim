@@ -1,136 +1,88 @@
-local U = require("custom-cellular-automaton.animations.snowtown.util")
-
+-- Falling particles and settled snow are separate from text and object glyphs.
+local U = require("custom-cellular-automaton.util")
 local Snow = {}
-
--- Config (tune from animation)
-Snow.DENSITY   = 0.005
-Snow.WIND_AMPL = 1
-Snow.WIND_FREQ = 0.08
-Snow.TTL_MIN   = 8      -- frames
-Snow.TTL_MAX   = 18
-Snow.FLAKES    = { "*", "·", ".", "•" }
-
-local function rnd_flake(self)
-    local t = self.FLAKES
-    return t[math.random(#t)]
-end
-
--- Allocate TTL field parallel to grid; 0 means no settled snow
-function Snow.alloc_ttl(grid)
-    local rows, cols = U.grid_size(grid)
-    local ttl = {}
-    for r=1, rows do
-        ttl[r] = {}
-        for c=1, cols do
-            ttl[r][c] = 0
-        end
-    end
-    return ttl
-end
-
-local function is_snow_char(ch)
-    return ch == "*" or ch == "·" or ch == "." or ch == "•"
-end
-
-local function spawn_top(self, grid, baseline)
-    local rows, cols = U.grid_size(grid)
-    for c=1, cols do
-        if U.is_space(baseline[1][c]) and U.is_space(grid[1][c].char) and math.random() < self.DENSITY then
-            grid[1][c].char = rnd_flake(self)
-        end
-    end
-end
-
-local function cell_empty(grid, r, c)
-    return r>=1 and c>=1 and r<=#grid and c<=#grid[1] and U.is_space(grid[r][c].char)
-end
-
-local function step_fall(grid, r, c, wind)
-    local rows, cols = U.grid_size(grid)
-    local below = r + 1
-    if below <= rows and U.is_space(grid[below][c].char) then
-        grid[below][c].char, grid[r][c].char = grid[r][c].char, " "
-        return true
-    end
-    local dir = wind >= 0 and 1 or -1
-    for _, dc in ipairs({ dir, -dir }) do
-        local nc = c + dc
-        if below <= rows and nc >= 1 and nc <= cols and U.is_space(grid[below][nc].char) then
-            grid[below][nc].char, grid[r][c].char = grid[r][c].char, " "
-            return true
-        end
-    end
-    return false
-end
-
--- Convert resting flakes into TTL "settled snow"
-local function settle_or_move(self, grid, wind, ttl)
-  local rows, cols = U.grid_size(grid)
-  for r = rows - 1, 1, -1 do
-    for c = 1, cols do
-      local ch = grid[r][c].char
-      if ch == "*" or ch == "·" or ch == "." or ch == "•" then
-        local moved = step_fall(grid, r, c, wind)
-        if not moved then
-          -- settle: give it a lifespan AND clear the falling glyph
-          ttl[r][c] = math.random(self.TTL_MIN, self.TTL_MAX)
-          grid[r][c].char = " "   -- <<< prevents TTL from being re-assigned next frame
-        end
-      end
-    end
-  end
-end
-
--- Age TTL pixels and draw them (short-lived accumulation)
-local function age_and_draw_ttl(grid, baseline, ttl)
-  local rows, cols = #grid, #grid[1]
-  for r = 1, rows do
-    for c = 1, cols do
-      local life = ttl[r][c]
-      if life > 0 then
-        life = life - 1
-        ttl[r][c] = life
-
-        local cur = grid[r][c].char
-        local base_is_space = (baseline[r][c] == " " or baseline[r][c] == "")
-
-        if life <= 0 then
-          -- melt: only clear if what's visible is a snow glyph
-          if cur == "*" or cur == "·" or cur == "." or cur == "•" then
-            grid[r][c].char = " "
-          end
-        else
-          -- show a light dot only on “empty baseline” and currently empty
-          if base_is_space and (cur == " " or cur == "") then
-            grid[r][c].char = "."
-          end
-        end
-      end
-    end
-  end
-end
-
-function Snow.tick(self, grid, baseline, t)
-    local wind = U.wind(t, self.WIND_AMPL, self.WIND_FREQ)
-    spawn_top(self, grid, baseline)
-    settle_or_move(self, grid, wind, self.ttl)
-    age_and_draw_ttl(grid, baseline, self.ttl)
-end
+Snow.__index = Snow
 
 function Snow.new(config)
-    local o = setmetatable({}, { __index = Snow })
-    if config then
-        for k, v in pairs(config) do o[k] = v end
-    end
-    o.ttl = nil
-    return o
+	local self = setmetatable(
+		{ DENSITY = 0.005, WIND_AMPL = 1, WIND_FREQ = 0.08, TTL_MIN = 30, TTL_MAX = 90, flakes = {}, ttl = {} },
+		Snow
+	)
+	for key, value in pairs(config or {}) do
+		self[key] = value
+	end
+	return self
 end
 
--- at bottom of snow.lua (before 'return Snow')
-function Snow.attach(self, grid)
-    -- allocate per-grid TTL store here
-    self.ttl = self.ttl or Snow.alloc_ttl(grid)
-    return self
+function Snow:attach(grid)
+	self.flakes, self.ttl = {}, {}
+	for r, row in ipairs(grid) do
+		self.ttl[r] = {}
+		for c = 1, #row do
+			self.ttl[r][c] = 0
+		end
+	end
+	return self
+end
+
+function Snow:tick(grid, _, time)
+	local rows, cols = U.size(grid)
+	local function empty(r, c)
+		local cell = grid[r] and grid[r][c]
+		-- A continuation cell belongs to a wide text glyph and is not free space.
+		return cell and cell.char == " " and self.ttl[r][c] == 0
+	end
+	-- Age exactly once, independently of which glyph was rendered last frame.
+	for r, row in ipairs(self.ttl) do
+		for c, life in ipairs(row) do
+			row[c] = math.max(0, life - 1)
+			if grid[r][c].char ~= " " and grid[r][c].char ~= "" then
+				row[c] = 0
+			end
+		end
+	end
+	for c = 1, cols do
+		if #self.flakes < 240 and empty(1, c) and math.random() < self.DENSITY then
+			self.flakes[#self.flakes + 1] =
+				{ x = c, y = 1, speed = 0.2 + math.random() * 0.25, char = math.random() < 0.2 and "*" or "." }
+		end
+	end
+	local wind = math.sin(time * self.WIND_FREQ * 2 * math.pi) * self.WIND_AMPL
+	local alive = {}
+	for _, flake in ipairs(self.flakes) do
+		local r, c = math.floor(flake.y + 0.5), math.floor(flake.x + 0.5)
+		local nx = math.max(1, math.min(cols, flake.x + wind * 0.16))
+		local nc = math.floor(nx + 0.5)
+		if empty(r, nc) then
+			flake.x, c = nx, nc
+		end
+		if r < rows and empty(r + 1, c) then
+			flake.y = flake.y + flake.speed
+			alive[#alive + 1] = flake
+		else
+			local dir = wind >= 0 and 1 or -1
+			if r < rows and empty(r + 1, c + dir) then
+				flake.x, flake.y = c + dir, r + 1
+				alive[#alive + 1] = flake
+			elseif empty(r, c) then
+				self.ttl[r][c] = math.random(self.TTL_MIN, self.TTL_MAX)
+			end
+		end
+	end
+	self.flakes = alive
+	for r, row in ipairs(self.ttl) do
+		for c, life in ipairs(row) do
+			if life > 0 then
+				U.plot(grid, c, r, ".", "Comment")
+			end
+		end
+	end
+	for _, flake in ipairs(alive) do
+		local r, c = math.floor(flake.y + 0.5), math.floor(flake.x + 0.5)
+		if empty(r, c) then
+			U.plot(grid, c, r, flake.char, "Special")
+		end
+	end
 end
 
 return Snow

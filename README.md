@@ -12,7 +12,7 @@ A collection of 19 custom cellular automaton animations for Neovim, built on top
 
 ## Requirements
 
-- Neovim >= 0.8.0
+- Neovim >= 0.9.0
 - [cellular-automaton.nvim](https://github.com/Eandrju/cellular-automaton.nvim)
 
 > **Note:** This plugin currently uses a forked version of `cellular-automaton.nvim` as a dependency to address an issue. A [pull request](https://github.com/Eandrju/cellular-automaton.nvim/pull/38) has been submitted to fix this in the upstream repository, but it has not yet been merged.
@@ -47,16 +47,16 @@ use {
 ## Animations Showcase
 
 ### 1. **Blackhole** (`blackhole_breakaway`)
-Text characters detach individually and spiral into a growing black hole at the center of the screen.
+Text characters detach individually and spiral into a growing black hole. A Big Bang finale forms a rotating galaxy fitted to the viewport.
 
 ### 2. **Ember Rise** (`ember`)
 Characters flicker and rise upward like glowing embers from a fire.
 
 ### 3. **Fireworks** (`fireworks`)
-Colorful explosive animations with rockets launching and sparks spreading across the screen.
+Colorful rockets leave trails and burst into falling sparks. A twelve-second show builds to a finale, then lets the last sparks fade.
 
 ### 4. **Glitch Drift** (`glitch_drift`)
-Characters glitch and drift horizontally with digital distortion effects.
+Characters drift in opposing scanlines, temporarily glitch and teleport, then recover their original text and highlights.
 
 ### 5. **Horizontal Slide** (`safe_slide_right`)
 All text rows rotate horizontally to the right in a smooth loop.
@@ -80,7 +80,7 @@ All text rows rotate horizontally to the left in a smooth loop.
 Gentle snowflakes fall down the screen with wind drift effects.
 
 ### 12. **Snowtown** (`snowtown`)
-Complex winter scene with falling snow, snowmen, and other festive objects that accumulate over time.
+Winter scene with melting snow, snowmen, pine trees, cabins, and a moving sleigh. Text and object glyphs stay intact beneath the snowfall.
 
 ### 13. **Star Wars** (`star_wars`)
 Text scrolls upward and away like the iconic Star Wars opening crawl.
@@ -89,13 +89,13 @@ Text scrolls upward and away like the iconic Star Wars opening crawl.
 Characters rise upward in a thermal updraft effect.
 
 ### 15. **Wisp** (`wisp`)
-Ethereal floating particles drift across the screen with smooth motion.
+Text gathers into a softly drifting orb with a fading trail, then returns to its original positions and highlights.
 
 ### 16. **Spin Wheel** (`spin_wheel`)
-An animated carnival-style spin wheel that randomly selects from visually selected lines. Features a fixed arrow pointer, smooth spinning with natural deceleration, and dynamically sized wheel based on the longest label (up to 20 characters). The wheel automatically scales to accommodate your labels - longer labels create bigger wheels. Select text in visual mode before running to populate the wheel labels.
+An animated selection wheel with a fixed pointer and smooth deceleration. The wheel fits the viewport and switches to a compact selector in small splits. Full Unicode labels are retained; the winner is shown on screen and in a notification. Select lines before running to populate the wheel.
 
 ### 17. **Plinko** (`plinko`)
-A full-screen Plinko/Galton board where balls drop from the top, bounce off pegs, and settle into buckets labeled from your visually selected lines. The bucket with the most balls is declared the winner.
+A Plinko board where balls collide with visible pegs and accumulate in labeled buckets with numeric totals. Large selections use automatically cycling pages, keeping every candidate reachable. The final view shows the winner's page, and a notification includes the full label.
 
 ### 18. **Supernova** (`supernova`)
 Every character collapses inward toward a single point, heating from dim to white-hot as it implodes. The core flashes, then detonates outward as cooling debris while expanding shockwave rings sweep the screen, ending in a brief field of dim twinkling stardust.
@@ -119,21 +119,24 @@ All animations are registered with cellular-automaton.nvim and can be triggered 
 :CellularAutomaton <animation_name>
 ```
 
-### Spin Wheel Special Usage
+### Spin Wheel and Plinko Selections
 
-The spin wheel animation works with visual selections. There are two ways to use it:
+Use the range-aware helper commands after selecting lines:
 
-**Method 1: Using the SpinWheel command (Recommended)**
 ```vim
-" Select lines in visual mode, then run:
 :'<,'>SpinWheel
+:'<,'>Plinko
 ```
 
-**Method 2: Using the standard CellularAutomaton command**
+The visual-mode keybindings below capture the active selection directly. Invoking a helper in normal mode without a range uses default options.
+
+The standard commands also work and use the last completed visual selection when available:
 ```vim
-" Select lines in visual mode, then run:
-:'<,'>CellularAutomaton spin_wheel
+:CellularAutomaton spin_wheel
+:CellularAutomaton plinko
 ```
+
+`CellularAutomaton` itself does not accept a range. Both selectors stop updating after showing the result for three seconds. Press `q`, `<Esc>`, or `<CR>` to close the animation window.
 
 ### Example Keybindings
 
@@ -152,6 +155,7 @@ end, { desc = "Snowtown animation" })
 
 -- Spin wheel with visual selection
 vim.keymap.set("v", "<leader>sw", "<Cmd>SpinWheel<CR>", { desc = "Spin wheel selector" })
+vim.keymap.set("v", "<leader>pl", "<Cmd>Plinko<CR>", { desc = "Plinko selector" })
 ```
 
 ## Configuration
@@ -192,7 +196,23 @@ require('custom-cellular-automaton').setup({
 |--------|------|---------|-------------|
 | `enabled_animations` | `table` | `{}` | List of animation names to enable (if set, only these will load) |
 | `disabled_animations` | `table` | `{}` | List of animation names to disable |
-| `fps_overrides` | `table` | `{}` | Per-animation FPS overrides (future feature) |
+| `fps_overrides` | `table` | `{}` | Render FPS per animation, from 1–120; fixed simulation steps preserve speed and duration |
+| `animation_options` | `table` | `{}` | Per-animation options: `duration` limits runtime in seconds; slides also accept `speed` in cells/second |
+
+Filters and FPS overrides accept module names (such as `"spin-wheel"`) or command names (`"spin_wheel"`). Calling `setup()` again updates registration, including removing disabled animations. Options omitted from a later setup call retain their previous values; use `{}` to reset a list or options table.
+
+```lua
+require('custom-cellular-automaton').setup({
+  fps_overrides = { warp_drive = 60, matrix = 20 },
+  animation_options = {
+    matrix = { duration = 20 },
+    safe_slide_right = { speed = 12, duration = 10 },
+    slide_left_safe = { speed = 12, duration = 10 },
+  },
+})
+```
+
+Animation options use canonical command names. `text_inferno` and `matrix_rain_soft` remain available as legacy command aliases for `inferno` and `matrix`.
 
 ## Animation Names Reference
 
@@ -205,6 +225,7 @@ require('custom-cellular-automaton').setup({
 | Horizontal Slide | `safe_slide_right` | Rotate text right |
 | Inferno | `inferno` | Rising flames |
 | Matrix | `matrix` | Matrix digital rain |
+| Plinko | `plinko` | Paged peg-board selector |
 | Ripple | `ripple` | Circular ripple waves |
 | Runner | `runner` | ASCII runner character |
 | Slide Left | `slide_left_safe` | Rotate text left |
@@ -212,6 +233,7 @@ require('custom-cellular-automaton').setup({
 | Snowtown | `snowtown` | Winter scene with objects |
 | Spin Wheel | `spin_wheel` | Carnival wheel selector |
 | Star Wars | `star_wars` | Opening crawl effect |
+| Supernova | `supernova` | Collapse, detonation, and stardust |
 | Updraft | `updraft` | Rising characters |
 | Warp Drive | `warp_drive` | Neon hyperspace tunnel and code reassembly |
 | Wisp | `wisp` | Floating particles |
@@ -224,7 +246,7 @@ Each animation follows a standardized module pattern:
 local M = {}
 
 function M.register()
-  local ca = require("cellular-automaton")
+  local runtime = require("custom-cellular-automaton.runtime")
   local config = {
     fps = 30,
     name = "animation_name",
@@ -234,13 +256,28 @@ function M.register()
     update = function(grid)
       -- Update animation frame
       return true  -- return false to stop
+    end,
+    cleanup = function(grid)
+      -- Optional: restore temporary state when duration is reached
     end
   }
-  ca.register_animation(config)
+  runtime.register(config)
 end
 
 return M
 ```
+
+The runtime normalizes grids, keeps complete UTF-8 glyphs together, translates display cells to the dependency's byte-oriented renderer, applies FPS overrides, and ensures the final frame is rendered before updates stop. Animation state must be reset in `init`; bounded effects return `false` only when their lifecycle is complete.
+
+## Development Checks
+
+From the repository root:
+
+```sh
+nvim --headless -u NONE -l tests/run.lua
+```
+
+The regression suite covers all animations, empty/tiny/uneven/Unicode grids, restarts, finite lifecycles, selection capture, registration filters, FPS overrides, snow lifetimes, and text/highlight preservation.
 
 ### Directory Structure
 
@@ -249,6 +286,10 @@ custom-cellular-automaton.nvim/
 ├── lua/
 │   └── custom-cellular-automaton/
 │       ├── init.lua              # Main plugin module
+│       ├── runtime.lua           # Grid, Unicode, timing, and registration bridge
+│       ├── selection.lua         # Range-aware selector input
+│       ├── slide.lua             # Shared slide implementation
+│       ├── util.lua              # Shared display-cell helpers
 │       └── animations/           # Individual animations
 │           ├── blackhole.lua
 │           ├── ember-rise.lua
@@ -262,6 +303,8 @@ custom-cellular-automaton.nvim/
 │               ├── snow.lua
 │               ├── spawner.lua
 │               └── util.lua
+├── tests/
+│   └── run.lua                         # Headless regression suite
 └── plugin/
     └── custom-cellular-automaton.lua  # Auto-load bootstrap
 ```

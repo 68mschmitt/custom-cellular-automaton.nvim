@@ -1,146 +1,103 @@
--- Wisp Animation for cellular-automaton.nvim
+-- Text gathers into a smooth orb with a fading trail, then returns to the buffer.
 -- Usage: :CellularAutomaton wisp
--- Behavior:
---   • Ethereal ball of light drifts across the screen
---   • Characters from text gather to form the wisp
---   • Wisp leaves a fading trail as it moves
---   • Bounces off edges with smooth motion
--- Parameters:
---   fps = 30         -- Frame rate
---   radius = 5       -- Size of the wisp ball
---   drift_speed = 1  -- Movement speed (cells per frame)
---   tail_length = 12 -- Number of fading trail frames
-
-local M = {
-  fps = 30,
-  radius = 5,
-  drift_speed = 1,
-  tail_length = 12,              -- number of tail frames
-  name = "wisp",
-}
-
-local frame = 0
-local phase = "formation"
-local center = { x = 1, y = 1 }
-local ball_chars = {}
-local dx, dy = 1, 1
-local trail = {}
-
-local function clamp(val, min, max)
-  return math.max(min, math.min(max, val))
-end
-
-M.init = function(grid)
-  frame = 0
-  phase = "formation"
-  center.x = math.floor(#grid / 2)
-  center.y = math.floor(#grid[1] / 2)
-  ball_chars = {}
-  trail = {}
-  dx = 1
-  dy = 1
-
-  for i = 1, #grid do
-    for j = 1, #grid[i] do
-      local char = grid[i][j].char
-      if char ~= " " then
-        table.insert(ball_chars, { char = char, x = i, y = j })
-        grid[i][j].char = " "
-      end
-    end
-  end
-end
-
-M.update = function(grid)
-  frame = frame + 1
-  local height = #grid
-  local width = #grid[1]
-  local diameter = M.radius * 2 + 1
-
-  -- Clear screen
-  for i = 1, height do
-    for j = 1, width do
-      grid[i][j].char = " "
-    end
-  end
-
-  if phase == "formation" then
-    local all_at_center = true
-    for _, c in ipairs(ball_chars) do
-      if c.x < center.x then c.x = c.x + 1
-      elseif c.x > center.x then c.x = c.x - 1 end
-
-      if c.y < center.y then c.y = c.y + 1
-      elseif c.y > center.y then c.y = c.y - 1 end
-
-      if c.x ~= center.x or c.y ~= center.y then
-        all_at_center = false
-      end
-    end
-
-    for _, c in ipairs(ball_chars) do
-      if c.x > 0 and c.x <= height and c.y > 0 and c.y <= width then
-        grid[c.x][c.y].char = c.char
-      end
-    end
-
-    if all_at_center then
-      phase = "drift"
-    end
-
-  elseif phase == "drift" then
-    -- Update trail
-    table.insert(trail, 1, { x = center.x, y = center.y })
-    if #trail > M.tail_length then
-      table.remove(trail)
-    end
-
-    -- Bounce and move
-    if center.x - M.radius <= 1 or center.x + M.radius >= height then dx = -dx end
-    if center.y - M.radius <= 1 or center.y + M.radius >= width  then dy = -dy end
-
-    center.x = center.x + dx
-    center.y = center.y + dy
-
-    -- Draw orb
-    for _, c in ipairs(ball_chars) do
-      local angle = math.random() * 2 * math.pi
-      local r = math.random(0, M.radius)
-      local x = math.floor(center.x + math.cos(angle) * r)
-      local y = math.floor(center.y + math.sin(angle) * r)
-      if x > 0 and x <= height and y > 0 and y <= width then
-        grid[x][y].char = c.char
-      end
-    end
-
-    -- Draw tail: wide to narrow over time
-    local fade_chars = { "*", ".", "-", "·", " " }
-    for i, pos in ipairs(trail) do
-      local tchar = fade_chars[clamp(i, 1, #fade_chars)]
-      local t_ratio = 1 - (i - 1) / M.tail_length
-      local taper_radius = math.floor(diameter / 2 * t_ratio)
-
-      for dxt = -taper_radius, taper_radius do
-        for dyt = -taper_radius, taper_radius do
-          local tx = pos.x + dxt
-          local ty = pos.y + dyt
-          if tx > 0 and tx <= height and ty > 0 and ty <= width then
-            local dist2 = dxt * dxt + dyt * dyt
-            if dist2 <= taper_radius * taper_radius then
-              grid[tx][ty].char = tchar
-            end
-          end
-        end
-      end
-    end
-  end
-
-  return true
-end
+local U = require("custom-cellular-automaton.util")
+local M = { drift_speed = 9, radius = 5, tail_length = 12 }
 
 function M.register()
-  require("cellular-automaton").register_animation(M)
+	local state
+	local fps = 30
+	require("custom-cellular-automaton.runtime").register({
+		name = "wisp",
+		fps = fps,
+		init = function(grid)
+			local rows, cols = U.size(grid)
+			state = {
+				frame = 0,
+				snapshot = U.snapshot(grid),
+				particles = {},
+				trail = {},
+				x = (cols + 1) / 2,
+				y = (rows + 1) / 2,
+				vx = 1,
+				vy = 0.6,
+				rows = rows,
+				cols = cols,
+				radius = math.max(0, math.min(M.radius, (cols - 1) / 2, rows - 1)),
+			}
+			for r, row in ipairs(grid) do
+				for c, cell in ipairs(row) do
+					if cell.char ~= " " and cell.char ~= "" then
+						local angle, radius = math.random() * 2 * math.pi, math.sqrt(math.random()) * state.radius
+						state.particles[#state.particles + 1] = {
+							x = c,
+							y = r,
+							char = cell.char,
+							dx = math.cos(angle) * radius,
+							dy = math.sin(angle) * radius / 2,
+						}
+					end
+				end
+			end
+		end,
+		cleanup = function(grid)
+			if state and state.snapshot then
+				U.restore(grid, state.snapshot)
+			end
+		end,
+		update = function(grid)
+			state.frame = state.frame + 1
+			local time = state.frame / fps
+			if #state.particles == 0 or time >= 10 then
+				U.restore(grid, state.snapshot)
+				return false
+			end
+			U.clear(grid)
+			if time > 1.5 and time < 8 then
+				table.insert(state.trail, 1, { x = state.x, y = state.y })
+				if #state.trail > M.tail_length then
+					table.remove(state.trail)
+				end
+				state.x = state.x + state.vx * M.drift_speed / fps
+				state.y = state.y + state.vy * M.drift_speed / fps / 2
+				local rx, ry = state.radius, state.radius / 2
+				if state.x < 1 + rx or state.x > state.cols - rx then
+					state.vx = -state.vx
+				end
+				if state.y < 1 + ry or state.y > state.rows - ry then
+					state.vy = -state.vy
+				end
+				state.x = math.max(1 + rx, math.min(state.cols - rx, state.x))
+				state.y = math.max(1 + ry, math.min(state.rows - ry, state.y))
+			end
+			-- Oldest first, always behind the orb; fading never paints blank pixels.
+			if time < 8 then
+				for i = #state.trail, 1, -1 do
+					local pos = state.trail[i]
+					local radius = state.radius * (1 - i / (M.tail_length + 1))
+					for angle = 0, 5.9, 0.6 do
+						U.plot(
+							grid,
+							pos.x + math.cos(angle) * radius,
+							pos.y + math.sin(angle) * radius / 2,
+							i < 4 and "*" or ".",
+							i < 4 and "Special" or "Comment"
+						)
+					end
+				end
+			end
+			local formation = math.min(1, time / 1.5)
+			local returning = math.max(0, (time - 8) / 2)
+			for i, p in ipairs(state.particles) do
+				if formation < 1 or returning > 0 or i <= 160 then
+					local x, y = state.x + p.dx, state.y + p.dy
+					x, y = p.x + (x - p.x) * formation, p.y + (y - p.y) * formation
+					x, y = x + (p.x - x) * returning, y + (p.y - y) * returning
+					U.plot(grid, x, y, p.char, "Special")
+				end
+			end
+			return true
+		end,
+	})
 end
 
 return M
-

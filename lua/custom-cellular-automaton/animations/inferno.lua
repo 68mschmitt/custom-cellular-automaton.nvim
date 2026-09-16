@@ -1,86 +1,49 @@
--- Inferno Animation for cellular-automaton.nvim
--- Usage: :CellularAutomaton text_inferno
--- Behavior:
---   • Fire rises from bottom to top, consuming text row by row
---   • Each row flickers through flame characters (*, ~, ., `, space)
---   • Rows burn out after a duration, leaving empty space
---   • Creates an intense rising flame effect
--- Parameters:
---   fps = 30            -- Frame rate
---   burn_duration = 10  -- Seconds each row burns before fading
-
-local M = {
-  fps = 30,
-  burn_duration = 10, -- seconds
-  name = "text_inferno",
-}
-
-local frame = 0
-local ignition_frame = {} -- ignition_frame[row] = frame when it starts burning
-local flicker_chars = { "*", "~", ".", "`", " " }
-local total_rows = 0
-
-M.init = function(grid)
-  frame = 0
-  ignition_frame = {}
-  total_rows = #grid
-  local middle = math.floor(total_rows / 2)
-  local rows = {}
-
-  -- Collect burn order (center outward)
-  for i = 0, total_rows do
-    if grid[middle - i] then table.insert(rows, middle - i) end
-    if i ~= 0 and grid[middle + i] then table.insert(rows, middle + i) end
-  end
-
-  local interval = math.floor((M.fps * M.burn_duration) / #rows)
-
-  for i, row in ipairs(rows) do
-    ignition_frame[row] = (i - 1) * interval
-  end
-end
-
-M.update = function(grid)
-  frame = frame + 1
-  local changed = false
-
-  local width = #grid[1]
-  local center_col = math.floor(width / 2)
-
-  for row = 1, #grid do
-    local start_frame = ignition_frame[row]
-    if not start_frame or frame < start_frame then goto continue end
-
-    local burn_progress = frame - start_frame
-    local spread = math.floor(burn_progress / 2)
-
-    for dx = -spread, spread do
-      local col = center_col + dx
-      if col >= 1 and col <= width then
-        local cell = grid[row][col]
-        if cell.char ~= " " then
-          local phase = math.random()
-          if phase < 0.4 then
-            cell.char = flicker_chars[math.random(1, 3)]
-          elseif phase < 0.9 then
-            cell.char = flicker_chars[4]
-          else
-            cell.char = " "
-          end
-          changed = true
-        end
-      end
-    end
-
-    ::continue::
-  end
-
-  return changed
-end
+-- Bottom-up fire with scheduled ignition and a finite burnout.
+-- Usage: :CellularAutomaton inferno (legacy alias: text_inferno)
+local U = require("custom-cellular-automaton.util")
+local M = {}
 
 function M.register()
-  require("cellular-automaton").register_animation(M)
+	local snapshot, frame, rows, cols
+	local fps, burn_duration = 30, 1.8
+	local glyphs = { "*", "^", "~", "'", "." }
+	local colors = { "CAFireWhite", "CAFireYellow", "CAFireOrange", "CAFireRed", "Comment" }
+	require("custom-cellular-automaton.runtime").register({
+		name = "inferno",
+		fps = fps,
+		init = function(grid)
+			snapshot, frame = U.snapshot(grid), 0
+			rows, cols = U.size(grid)
+			for i, color in ipairs({ "#fff4c2", "#ffd75f", "#ff9e40", "#d74b32" }) do
+				vim.api.nvim_set_hl(0, colors[i], { default = true, fg = color, ctermfg = ({ 230, 221, 208, 160 })[i] })
+			end
+		end,
+		update = function(grid)
+			frame = frame + 1
+			local time, pending = frame / fps, false
+			for r, row in ipairs(grid) do
+				for c, cell in ipairs(row) do
+					if cell.char ~= "" then
+						local ignition = (rows - r) / math.max(1, rows - 1) * 3
+							+ math.abs(c - (cols + 1) / 2) / math.max(1, cols) * 0.6
+						local age = time - ignition
+						if age < 0 then
+							U.plot(grid, c, r, snapshot[r][c].char, snapshot[r][c].hl_group)
+							pending = true
+						elseif age < burn_duration then
+							local heat = math.min(5, 1 + math.floor(age / burn_duration * 5))
+							local char = math.random() < age / burn_duration * 0.7 and " " or glyphs[heat]
+							U.plot(grid, c, r, char, colors[heat])
+							pending = true
+						else
+							U.plot(grid, c, r, " ", nil)
+						end
+					end
+				end
+			end
+			return pending
+		end,
+	})
 end
 
 return M
-

@@ -1,87 +1,54 @@
--- Glitch Drift Animation for cellular-automaton.nvim
+-- Drifting scanlines, temporary corruption and teleport bursts, then recovery.
 -- Usage: :CellularAutomaton glitch_drift
--- Behavior:
---   • Characters randomly drift left or right
---   • Occasional flickering and character substitution
---   • Random teleportation jumps
---   • Creates a digital glitch/corruption effect
--- Parameters:
---   fps = 50                -- Frame rate
---   max_drift = 2           -- Maximum drift distance per update
---   flicker_chance = 0.1    -- Probability of character flickering
---   teleport_chance = 0.02  -- Probability of random teleportation
-
-local M = {
-  fps = 50,
-  max_drift = 2,
-  flicker_chance = 0.1,
-  teleport_chance = 0.02,
-  name = "glitch_drift",
-}
-
-local frame
-
-local cell_empty = function(grid, x, y)
-  return x > 0 and x <= #grid
-    and y > 0 and y <= #grid[x]
-    and grid[x][y].char == " "
-end
-
-M.init = function()
-  frame = 0
-end
-
-M.update = function(grid)
-  frame = frame + 1
-  local was_state_updated = false
-
-  for i = 1, #grid do
-    for j = 1, #grid[i] do
-      grid[i][j].processed = false
-    end
-  end
-
-  for x = 1, #grid do
-    for y = 1, #grid[x] do
-      local cell = grid[x][y]
-
-      if cell.processed or cell.char == " " then
-        goto continue
-      end
-
-      cell.processed = true
-
-      -- Random flicker into glitch characters
-      if math.random() < M.flicker_chance then
-        local glitch_chars = { "@", "#", "~", "%" }
-        cell.char = glitch_chars[math.random(1, #glitch_chars)]
-        was_state_updated = true
-      end
-
-      -- Random sideways teleport
-      if math.random() < M.teleport_chance then
-        local dx = math.random(-M.max_drift, M.max_drift)
-        local dy = math.random(-1, 1)
-        local tx, ty = x + dy, y + dx
-
-        if cell_empty(grid, tx, ty) then
-          grid[tx][ty].char = cell.char
-          grid[tx][ty].processed = true
-          grid[x][y].char = " "
-          was_state_updated = true
-        end
-      end
-
-      ::continue::
-    end
-  end
-
-  return was_state_updated
-end
+local U = require("custom-cellular-automaton.util")
+local M = {}
 
 function M.register()
-  require("cellular-automaton").register_animation(M)
+	local frame, snapshot, particles, cols
+	local fps, duration = 30, 7
+	local glyphs = { "@", "#", "~", "%" }
+	require("custom-cellular-automaton.runtime").register({
+		name = "glitch_drift",
+		fps = fps,
+		init = function(grid)
+			frame, snapshot, particles = 0, U.snapshot(grid), {}
+			local _
+			_, cols = U.size(grid)
+			for r, row in ipairs(grid) do
+				for c, cell in ipairs(row) do
+					if cell.char ~= " " and cell.char ~= "" then
+						particles[#particles + 1] = { x = c, y = r, char = cell.char, hl = cell.hl_group, drift = 0 }
+					end
+				end
+			end
+		end,
+		cleanup = function(grid)
+			if snapshot then
+				U.restore(grid, snapshot)
+			end
+		end,
+		update = function(grid)
+			frame = frame + 1
+			local time = frame / fps
+			if #particles == 0 or time >= duration then
+				U.restore(grid, snapshot)
+				return false
+			end
+			U.clear(grid)
+			local envelope = math.min(1, time, (duration - time) / 1.5)
+			for _, p in ipairs(particles) do
+				p.drift = p.drift + (p.y % 2 == 0 and 1 or -1) * 4 / fps
+				if math.random() < 0.025 then
+					p.drift = p.drift + math.random(-6, 6)
+				end
+				local offset = (p.drift + math.sin(time * 3 + p.y) * 2) * envelope
+				local x = 1 + ((math.floor(p.x + offset + 0.5) - 1) % cols)
+				local glitch = math.random() < 0.12 * envelope
+				U.plot(grid, x, p.y, glitch and glyphs[math.random(#glyphs)] or p.char, glitch and "Special" or p.hl)
+			end
+			return true
+		end,
+	})
 end
 
 return M
-

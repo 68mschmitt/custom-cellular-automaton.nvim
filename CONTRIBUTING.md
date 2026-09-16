@@ -55,7 +55,7 @@ Here's the basic template for a new animation:
 local M = {}
 
 function M.register()
-  local ca = require("cellular-automaton")
+  local runtime = require("custom-cellular-automaton.runtime")
   
   local config = {
     fps = 30,
@@ -65,7 +65,7 @@ function M.register()
       -- Initialize your animation state here
       -- grid is a 2D array of cells: grid[row][col].char
       -- Save initial state if needed
-      math.randomseed(os.time())  -- If using randomness
+      -- Use math.random() without reseeding Neovim's shared generator.
     end,
     
     update = function(grid)
@@ -78,7 +78,7 @@ function M.register()
     end
   }
   
-  ca.register_animation(config)
+  runtime.register(config)
 end
 
 return M
@@ -91,7 +91,11 @@ return M
 The `grid` parameter is a 2D array where:
 - `grid[row][col].char` = character to display (string)
 - `grid[row][col].hl_group` = optional highlight group (string)
-- Rows and columns are 1-indexed (Lua convention)
+- Rows and columns are 1-indexed display cells (Lua convention)
+- Wide glyphs have an empty-string continuation cell. Keep glyph strings intact.
+- The shared runtime pads uneven rows and handles empty grids before invoking animations.
+- Use `custom-cellular-automaton.util` for bounds-safe drawing, snapshots, and Unicode-aware text.
+- The runtime converts display cells to byte cells for the dependency renderer and preserves fixed-step timing under FPS overrides.
 
 ### Common Helper Functions
 
@@ -99,18 +103,16 @@ Here are some useful patterns:
 
 ```lua
 -- Get grid dimensions
-local rows, cols = #grid, #grid[1]
+local rows, cols = require("custom-cellular-automaton.util").size(grid)
 
 -- Check if a cell is empty
 local function is_empty(grid, r, c)
-  return grid[r] and grid[r][c] and 
-         (grid[r][c].char == " " or grid[r][c].char == "")
+  return grid[r] and grid[r][c] and grid[r][c].char == " "
 end
 
--- Swap two cells
-local function swap_cells(grid, r1, c1, r2, c2)
-  grid[r1][c1], grid[r2][c2] = grid[r2][c2], grid[r1][c1]
-end
+-- Use util.plot for drawing so wide glyphs are replaced atomically.
+local U = require("custom-cellular-automaton.util")
+U.plot(grid, c, r, char, hl_group)
 
 -- Clamp value to range
 local function clamp(val, min, max)
@@ -193,6 +195,13 @@ Reload your Neovim config and test:
 
 ### 3. Test Edge Cases
 
+Run the regression suite from the repository root:
+
+```sh
+nvim --headless -u NONE -l tests/run.lua
+luacheck lua plugin --no-color
+```
+
 - Empty buffers
 - Very small buffers (< 10 lines)
 - Very large buffers (> 1000 lines)
@@ -235,6 +244,8 @@ local helpers = require("custom-cellular-automaton.animations.my-complex-animati
 
 - [ ] Add documentation header to your animation file
 - [ ] Test animation in various buffer sizes
+- [ ] Run `nvim --headless -u NONE -l tests/run.lua`
+- [ ] Run `luacheck lua plugin --no-color`
 - [ ] Verify no syntax errors with `:checkhealth`
 - [ ] Add animation name to `init.lua` registration list
 - [ ] Update README.md animation showcase (if applicable)

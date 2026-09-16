@@ -1,96 +1,59 @@
--- Ember Rise Animation for cellular-automaton.nvim
+-- Text ignites into warm embers which rise, cool, and leave the viewport.
 -- Usage: :CellularAutomaton ember
--- Behavior:
---   • Characters flicker and transform into embers (* or .)
---   • Embers rise upward through empty space
---   • New embers randomly ignite from static characters
---   • Creates a rising fire/ember effect from text
--- Parameters:
---   fps = 40               -- Frame rate
---   ignition_chance = 0.01 -- Probability of new ember spawning per character
---   flicker_chance = 0.15  -- Probability of ember flickering each frame
---   rise_rate = 1          -- Number of cells embers rise per frame
-
-local M = {
-  fps = 40,
-  ignition_chance = 0.01,
-  flicker_chance = 0.15,
-  rise_rate = 1,
-  name = "ember",
-}
-
-local frame
-
-local cell_empty = function(grid, x, y)
-  return x > 0 and x <= #grid
-    and y > 0 and y <= #grid[x]
-    and grid[x][y].char == " "
-end
-
-local swap_cells = function(grid, x1, y1, x2, y2)
-  grid[x1][y1], grid[x2][y2] = grid[x2][y2], grid[x1][y1]
-end
-
-M.init = function()
-  frame = 0
-end
-
-M.update = function(grid)
-  frame = frame + 1
-  local was_state_updated = false
-
-  -- Reset process flags
-  for i = 1, #grid do
-    for j = 1, #grid[i] do
-      grid[i][j].processed = false
-    end
-  end
-
-  for x = #grid - 1, 1, -1 do
-    for y = 1, #grid[x] do
-      local cell = grid[x][y]
-
-      if cell.processed or string.find(cell.hl_group or "", "comment") then
-        goto continue
-      end
-
-      cell.processed = true
-
-      -- Chance to flicker
-      if math.random() < M.flicker_chance and cell.char ~= " " then
-        cell.char = (math.random() < 0.5) and "*" or "."
-        was_state_updated = true
-      end
-
-      -- Chance to ignite new embers from static chars
-      if cell.char ~= " " and math.random() < M.ignition_chance then
-        -- duplicate this cell upwards
-        if cell_empty(grid, x - 1, y) then
-          grid[x - 1][y].char = cell.char
-          grid[x - 1][y].processed = true
-          was_state_updated = true
-        end
-      end
-
-      -- Try to rise upward if empty space
-      for step = 1, M.rise_rate do
-        if cell_empty(grid, x - step, y) then
-          swap_cells(grid, x, y, x - step, y)
-          was_state_updated = true
-          break
-        end
-      end
-
-      ::continue::
-    end
-  end
-
-  return was_state_updated
-end
+local U = require("custom-cellular-automaton.util")
+local M = {}
 
 function M.register()
-  require("cellular-automaton").register_animation(M)
+	local frame, fuel, particles
+	local fps = 30
+	require("custom-cellular-automaton.runtime").register({
+		name = "ember",
+		fps = fps,
+		init = function(grid)
+			frame, fuel, particles = 0, {}, {}
+			for r, row in ipairs(grid) do
+				for c, cell in ipairs(row) do
+					if cell.char ~= " " and cell.char ~= "" then
+						fuel[#fuel + 1] = {
+							x = c,
+							y = r,
+							char = cell.char,
+							hl = cell.hl_group,
+							ignition = math.random() * 2.5 + (#grid - r) / math.max(1, #grid),
+						}
+					end
+				end
+			end
+		end,
+		update = function(grid)
+			frame = frame + 1
+			local time = frame / fps
+			U.clear(grid)
+			local waiting = {}
+			for _, p in ipairs(fuel) do
+				if time >= p.ignition then
+					p.life, p.speed, p.phase = 1 + math.random() * 1.5, 5 + math.random() * 7, math.random() * 6
+					particles[#particles + 1] = p
+				else
+					U.plot(grid, p.x, p.y, p.char, p.hl)
+					waiting[#waiting + 1] = p
+				end
+			end
+			fuel = waiting
+			local alive = {}
+			for _, p in ipairs(particles) do
+				p.y = p.y - p.speed / fps
+				p.x = p.x + math.sin(time * 3 + p.phase) * 2 / fps
+				p.life = p.life - 1 / fps
+				if p.life > 0 and p.y >= 0.5 then
+					U.plot(grid, p.x, p.y, p.life < 0.5 and "." or "*", p.life < 0.5 and "Comment" or "WarningMsg")
+					alive[#alive + 1] = p
+				end
+			end
+			particles = alive
+			return #fuel > 0 or #particles > 0
+		end,
+	})
 end
 
 return M
-

@@ -1,5 +1,3 @@
-local U = require("custom-cellular-automaton.animations.snowtown.util")
-
 -- Item registry:
 -- Each item:
 -- {
@@ -18,50 +16,78 @@ local R = {}
 
 -- === Your chosen snowman (ASCII) ===
 local snowman_cozy = {
-  "   ___",
-  "  |___|",
-  "  (o.o)",
-  "  ~===~",
-  " (  o  )",
-  " /(  o )\\",
-  "(_______)",
+	"   ___",
+	"  |___|",
+	"  (o.o)",
+	"  ~===~",
+	" (  o  )",
+	" /(  o )\\",
+	"(_______)",
 }
 
 R.catalog = {
-  {
-    name = "snowman_cozy",
-    class = "anchored",
-    stencil = snowman_cozy,
-    anchor = "bottom_center",
-    rules = { margin_left = 2, margin_right = 2, margin_bottom = 0, margin_top = 1, min_cols = 24 },
-    max_instances = 3,
-  },
-  -- Add more items over time here without touching other files.
+	{
+		name = "snowman_cozy",
+		class = "anchored",
+		stencil = snowman_cozy,
+		anchor = "bottom_center",
+		rules = { margin_left = 2, margin_right = 2, margin_bottom = 0, margin_top = 1, min_cols = 24 },
+		max_instances = 3,
+	},
+	{
+		name = "pine_tree",
+		class = "anchored",
+		stencil = { "   *   ", "  /\\  ", " /++\\ ", "/++++\\", "  ||  " },
+		anchor = "bottom_center",
+		rules = { margin_left = 1, margin_right = 1, margin_bottom = 0, margin_top = 1 },
+		max_instances = 4,
+	},
+	{
+		name = "cabin",
+		class = "anchored",
+		stencil = { "   /\\   ", "  /__\\  ", " /____\\ ", " | [] | ", " |__#_| " },
+		anchor = "bottom_center",
+		rules = { margin_left = 1, margin_right = 1, margin_bottom = 0, margin_top = 1 },
+		max_instances = 2,
+	},
+	{
+		name = "sleigh",
+		class = "floating",
+		stencil = { "o--o  _o_", " /\\  |__|", "      ===" },
+		rules = { margin_left = 1, margin_right = 1, margin_top = 1, margin_bottom = 8 },
+		max_instances = 1,
+	},
 }
 
 -- helpers
 local function width_of(stencil)
-  local w = 0
-  for _, line in ipairs(stencil) do
-    if #line > w then w = #line end
-  end
-  return w
+	local w = 0
+	for _, line in ipairs(stencil) do
+		if #line > w then
+			w = #line
+		end
+	end
+	return w
 end
 
-local function height_of(stencil) return #stencil end
+local function height_of(stencil)
+	return #stencil
+end
 
 -- Compute anchor offsets (col-relative)
 -- For "bottom_center": reference point is bottom row of stencil, centered.
 function R.anchor_offset(stencil, anchor)
-  local w = width_of(stencil)
-  local h = height_of(stencil)
-  if anchor == "bottom_center" then
-    return math.floor((w - 1) / 2), h - 1  -- (dx_from_left, dy_from_top) to bottom-center
-  end
-  -- default
-  return 0, h - 1
+	local w = width_of(stencil)
+	local h = height_of(stencil)
+	if anchor == "bottom_center" then
+		return math.floor((w - 1) / 2), h - 1 -- (dx_from_left, dy_from_top) to bottom-center
+	end
+	-- default
+	return 0, h - 1
 end
 
-function R.dimensions(stencil) return width_of(stencil), height_of(stencil) end
+function R.dimensions(stencil)
+	return width_of(stencil), height_of(stencil)
+end
 
 return R
