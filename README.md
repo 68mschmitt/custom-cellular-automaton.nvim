@@ -1,10 +1,10 @@
 # custom-cellular-automaton.nvim
 
-A collection of 18 custom cellular automaton animations for Neovim, built on top of [eandrju/cellular-automaton.nvim](https://github.com/Eandrju/cellular-automaton.nvim).
+A collection of 19 custom cellular automaton animations for Neovim, built on top of [eandrju/cellular-automaton.nvim](https://github.com/Eandrju/cellular-automaton.nvim).
 
 ## Features
 
-- 🎨 **18 Unique Animations** - From black holes to snowfall, matrix effects to fireworks
+- 🎨 **19 Unique Animations** - From black holes to snowfall, matrix effects to fireworks
 - 🔧 **Easy Configuration** - Enable/disable specific animations with simple setup
 - 🚀 **Auto-registration** - All animations load automatically on plugin initialization
 - 🎯 **Modular Design** - Each animation is self-contained and follows consistent patterns
@@ -99,6 +99,15 @@ A full-screen Plinko/Galton board where balls drop from the top, bounce off pegs
 
 ### 18. **Supernova** (`supernova`)
 Every character collapses inward toward a single point, heating from dim to white-hot as it implodes. The core flashes, then detonates outward as cooling debris while expanding shockwave rings sweep the screen, ending in a brief field of dim twinkling stardust.
+
+### 19. **Warp Drive** (`warp_drive`)
+Your code stretches into luminous streaks as you accelerate through a cyan-and-violet hyperspace tunnel. Glowing rings and perspective star trails rush past a drifting vanishing point, then the text barrel-rolls back into place with its original syntax highlighting. The journey runs for about nine seconds, even on a blank buffer.
+
+```vim
+:CellularAutomaton warp_drive
+```
+
+Use `"warp_drive"` in `enabled_animations` or `disabled_animations` to control registration.
 
 ## Usage
 
@@ -204,6 +213,7 @@ require('custom-cellular-automaton').setup({
 | Spin Wheel | `spin_wheel` | Carnival wheel selector |
 | Star Wars | `star_wars` | Opening crawl effect |
 | Updraft | `updraft` | Rising characters |
+| Warp Drive | `warp_drive` | Neon hyperspace tunnel and code reassembly |
 | Wisp | `wisp` | Floating particles |
 
 ## Architecture

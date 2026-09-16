@@ -2,7 +2,7 @@ local M = {}
 
 M.version = "1.0.0"
 M.name = "custom-cellular-automaton.nvim"
-M.description = "Collection of 18 custom cellular automaton animations for Neovim"
+M.description = "Collection of 19 custom cellular automaton animations for Neovim"
 M.dependencies = { "eandrju/cellular-automaton.nvim" }
 
 M.config = {
@@ -29,6 +29,7 @@ local animations = {
   "star-wars",
   "supernova",
   "updraft",
+  "warp_drive",
   "wisp",
 }
 
