@@ -9,7 +9,8 @@
 --   • Once everything is swallowed, the hole flashes and collapses to a
 --     singularity, then detonates in a Big Bang: debris flies outward
 --     through expanding shockwaves, then swirls into a rotating spiral
---     galaxy that holds briefly before the animation ends.
+--     galaxy that keeps slowly turning forever -- press q/<Esc>/<CR> to
+--     close it, since it never ends on its own.
 
 local ca = require("custom-cellular-automaton.runtime")
 local U = require("custom-cellular-automaton.util")
@@ -18,11 +19,11 @@ local U = require("custom-cellular-automaton.util")
 local FPS = 30 -- smoothness
 -- Detachment timing: mean time-to-detach scales with distance from center
 -- (closer chars detach sooner), each with individual jitter.
-local DETACH_MEAN = 6.0 -- seconds (detach-time mean for edge particles)
+local DETACH_MEAN = 3.0 -- seconds (detach-time mean for edge particles)
 local DETACH_CENTER_BIAS = 0.35 -- fraction of DETACH_MEAN used for particles at the center
-local DETACH_JITTER = 2.5 -- seconds added/subtracted randomly (scaled by distance)
+local DETACH_JITTER = 1.2 -- seconds added/subtracted randomly (scaled by distance)
 -- Spiral motion (applies after a particle detaches)
-local DECAY_K = 1.10 -- radial shrink rate per second (higher = faster inward)
+local DECAY_K = 1.5 -- radial shrink rate per second (higher = faster inward)
 local OMEGA_0 = 0.60 -- initial angular speed (radians/sec)
 local OMEGA_ACCEL = 0.50 -- angular acceleration (radians/sec^2)
 local SPIRAL_GAIN = 1.20 -- extra twist near the center (1/r term)
@@ -65,8 +66,13 @@ local GALAXY_TWIST = 5.5 -- radians the arms wind from core to edge
 local GALAXY_CORE_SCATTER = 1.6 -- extra angular scatter near the core (fat bulge)
 local GALAXY_ARM_SCATTER = 0.22 -- angular scatter along the arms (keeps them tight)
 local GALAXY_FORM_DURATION = 2.2 -- seconds to swirl from debris into formation
-local GALAXY_OMEGA = 0.12 -- slow rotation once formed (radians/sec)
-local GALAXY_HOLD_DURATION = 4.0 -- seconds to hold the finished, rotating galaxy
+-- Orbital (tangential) speed, shared by every star -- a flat rotation curve
+-- like a real spiral galaxy's disk. Angular speed is this divided by each
+-- star's own radius, so the tight core visibly turns while the sparser
+-- outer arms drift at the same linear speed; a single shared angular speed
+-- would leave the (densely-populated) core all but motionless on a
+-- character grid.
+local GALAXY_TANGENT_SPEED = 1.4 -- units/sec
 -- Star glyphs, brightest core -> dimmest rim (parallel to HEAT_PALETTE)
 local GALAXY_CHARS = { "@", "#", "*", "+", ".", "." }
 
@@ -244,7 +250,7 @@ local bigbang_rings = nil
 local bigbang_extent = 1.0 -- reference distance used to color shockwaves/debris
 local galaxy_form_t = 0.0
 local galaxy_hold_t = 0.0
-local rotation_theta = 0.0
+local rotation_time = 0.0
 local galaxy_radius = 1.0
 
 local function start_bigbang(rows, max_cols)
@@ -299,7 +305,7 @@ local cfg = {
 		bigbang_rings = nil
 		galaxy_form_t = 0.0
 		galaxy_hold_t = 0.0
-		rotation_theta = 0.0
+		rotation_time = 0.0
 
 		target_radius = math.max(0.5, math.min(rows / ASPECT, max_cols) * FINAL_RADIUS_FRAC)
 		growth_per_abs = (target_radius - HORIZON_START) / math.max(1, total)
@@ -387,7 +393,7 @@ cfg.update = function(grid)
 	end
 
 	if phase == "galaxy_form" or phase == "galaxy_hold" then
-		rotation_theta = rotation_theta + GALAXY_OMEGA / FPS
+		rotation_time = rotation_time + 1.0 / FPS
 
 		local ease = 1.0
 		if phase == "galaxy_form" then
@@ -397,7 +403,7 @@ cfg.update = function(grid)
 		end
 
 		for _, s in ipairs(stars) do
-			local angle = s.base_angle + rotation_theta
+			local angle = s.base_angle + rotation_time * (GALAXY_TANGENT_SPEED / math.max(s.radius, GALAXY_MIN_RADIUS))
 			local tx = s.radius * math.cos(angle)
 			local ty = s.radius * math.sin(angle)
 
@@ -418,10 +424,8 @@ cfg.update = function(grid)
 			phase = "galaxy_hold"
 			galaxy_hold_t = 0.0
 		elseif phase == "galaxy_hold" then
+			-- Spins forever; only the user closing the window ends it.
 			galaxy_hold_t = galaxy_hold_t + 1.0 / FPS
-			if galaxy_hold_t >= GALAXY_HOLD_DURATION then
-				return false
-			end
 		end
 		return true
 	end

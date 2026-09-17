@@ -1,7 +1,7 @@
 -- Text gathers into a smooth orb with a fading trail, then returns to the buffer.
 -- Usage: :CellularAutomaton wisp
 local U = require("custom-cellular-automaton.util")
-local M = { drift_speed = 9, radius = 5, tail_length = 12 }
+local M = { drift_speed = 120, radius = 5, tail_length = 12 }
 
 function M.register()
 	local state

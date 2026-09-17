@@ -47,7 +47,7 @@ use {
 ## Animations Showcase
 
 ### 1. **Blackhole** (`blackhole_breakaway`)
-Text characters detach individually and spiral into a growing black hole. A Big Bang finale forms a rotating galaxy fitted to the viewport.
+Text characters detach individually and spiral into a growing black hole. A Big Bang finale forms a rotating galaxy fitted to the viewport, which keeps slowly turning forever -- close the window to end it.
 
 ### 2. **Ember Rise** (`ember`)
 Characters flicker and rise upward like glowing embers from a fire.
@@ -98,7 +98,7 @@ An animated selection wheel with a fixed pointer and smooth deceleration. The wh
 A Plinko board where balls collide with visible pegs and accumulate in labeled buckets with numeric totals. Large selections use automatically cycling pages, keeping every candidate reachable. The final view shows the winner's page, and a notification includes the full label.
 
 ### 18. **Supernova** (`supernova`)
-Every character collapses inward toward a single point, heating from dim to white-hot as it implodes. The core flashes, then detonates outward as cooling debris while expanding shockwave rings sweep the screen, ending in a brief field of dim twinkling stardust.
+Every character collapses inward toward a single point, heating from dim to white-hot as it implodes. The core flashes, then detonates outward as cooling debris while expanding shockwave rings sweep the screen, settling into cinders that glow faintly in place. Gravity then pulls that exact stardust back home, each cinder reigniting into its original character as it arrives -- a stellar rebirth that restores the text exactly.
 
 ### 19. **Warp Drive** (`warp_drive`)
 Your code stretches into luminous streaks as you accelerate through a cyan-and-violet hyperspace tunnel. Glowing rings and perspective star trails rush past a drifting vanishing point, then the text barrel-rolls back into place with its original syntax highlighting. The journey runs for about nine seconds, even on a blank buffer.
@@ -233,7 +233,7 @@ Animation options use canonical command names. `text_inferno` and `matrix_rain_s
 | Snowtown | `snowtown` | Winter scene with objects |
 | Spin Wheel | `spin_wheel` | Carnival wheel selector |
 | Star Wars | `star_wars` | Opening crawl effect |
-| Supernova | `supernova` | Collapse, detonation, and stardust |
+| Supernova | `supernova` | Collapse, detonation, and gravitational rebirth |
 | Updraft | `updraft` | Rising characters |
 | Warp Drive | `warp_drive` | Neon hyperspace tunnel and code reassembly |
 | Wisp | `wisp` | Floating particles |

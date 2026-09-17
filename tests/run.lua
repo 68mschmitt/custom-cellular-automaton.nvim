@@ -164,7 +164,6 @@ test("UTF-8 truncation and renderer byte highlights", function()
 end)
 
 local finite = {
-	blackhole_breakaway = true,
 	ember = true,
 	fireworks = true,
 	glitch_drift = true,
@@ -368,9 +367,9 @@ end)
 
 test("selection helper commands capture active visual mode and explicit ranges", function()
 	local captured
-	vim.api.nvim_create_user_command("CellularAutomaton", function()
+	ca.start_animation = function()
 		captured = Selection.labels()
-	end, { nargs = 1 })
+	end
 	dofile("plugin/custom-cellular-automaton.lua")
 	vim.api.nvim_buf_set_lines(0, 0, -1, false, { "Alpha", "Beta", "Gamma" })
 	vim.cmd("normal! ggVj")

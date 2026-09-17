@@ -6,8 +6,11 @@
 --   • Once fully collapsed, the core briefly flashes...
 --   • ...then detonates: characters fling outward as cooling debris while
 --     one or more expanding shockwave rings sweep across the buffer.
---   • Debris cools and burns away (char -> "*" -> "+" -> "." -> gone).
---   • A short field of dim twinkling stardust plays before the animation ends.
+--   • Debris cools and burns away (char -> "*" -> "+" -> "." -> gone), and
+--     the surviving cinders drift in place as dim stardust.
+--   • Gravity then takes hold: exactly that scattered stardust is pulled
+--     back across the screen to where it started, reigniting into the
+--     original characters as each one arrives home -- a stellar rebirth.
 
 local rng = math.random
 local U = require("custom-cellular-automaton.util")
@@ -30,8 +33,11 @@ local RING_DELAY_FRAMES = 6 -- frames between successive rings
 local RING_SPEED = 1.4 -- cells/frame radial growth
 local RING_THICKNESS = 1.4 -- how thick the ring band is
 
-local AFTERGLOW_DURATION = 1.5 -- seconds of dim twinkling stardust before ending
-local AFTERGLOW_STAR_COUNT = 18
+local AFTERGLOW_DURATION = 1.2 -- seconds the settled cinders twinkle before gravity pulls them home
+
+local GENESIS_STAGGER_MAX = 0.7 -- extra random seconds before a cinder begins its return
+local GENESIS_DURATION = 1.5 -- seconds for a cinder to travel home once it starts moving
+local GENESIS_HOLD = 0.5 -- seconds the fully-reformed text lingers before the animation ends
 
 local CENTER_JITTER_FRAC = 0.12 -- how far the epicenter can drift from dead-center
 
@@ -79,13 +85,16 @@ local function clear_grid(grid)
 	U.clear(grid)
 end
 
+-- Captures each character's original position and highlight so it can find
+-- its way home again after being scattered as debris.
 local function snapshot_particles(grid)
 	local parts = {}
 	for r = 1, #grid do
 		for c = 1, #grid[r] do
-			local ch = grid[r][c].char
+			local cell = grid[r][c]
+			local ch = cell.char
 			if ch and ch ~= "" and ch ~= " " then
-				table.insert(parts, { r0 = r, c0 = c, ch = ch })
+				table.insert(parts, { r0 = r, c0 = c, ch = ch, hl0 = cell.hl_group })
 			end
 		end
 	end
@@ -132,7 +141,9 @@ local state = {
 	frame_since_explode = 0,
 	rings = {},
 	afterglow_t = 0,
-	stars = {},
+	genesis_t = 0,
+	hold_t = 0,
+	original_snapshot = {},
 }
 
 -- ===== Animation Configuration =====
@@ -144,6 +155,7 @@ local config = {
 	init = function(grid)
 		state.rows = #grid
 		state.max_cols = get_max_cols(grid)
+		state.original_snapshot = U.snapshot(grid)
 
 		local base_r, base_c = get_center(state.rows, state.max_cols)
 		local jr = math.floor((rng() * 2 - 1) * state.rows * CENTER_JITTER_FRAC)
@@ -164,7 +176,8 @@ local config = {
 		state.frame_since_explode = 0
 		state.rings = {}
 		state.afterglow_t = 0
-		state.stars = {}
+		state.genesis_t = 0
+		state.hold_t = 0
 	end,
 
 	update = function(grid)
@@ -277,29 +290,70 @@ local config = {
 			if not any_alive and not any_ring_active then
 				state.phase = "afterglow"
 				state.afterglow_t = 0
-				state.stars = {}
-				for _ = 1, AFTERGLOW_STAR_COUNT do
-					table.insert(state.stars, {
-						x = rng(1, math.max(1, state.max_cols)),
-						y = rng(1, math.max(1, state.rows)),
-						phase = rng() * 2 * math.pi,
-						speed = 0.05 + rng() * 0.1,
-					})
+				for _, p in ipairs(state.particles) do
+					p.twinkle_phase = rng() * 2 * math.pi
+					p.twinkle_speed = 0.05 + rng() * 0.1
 				end
 			end
 		elseif state.phase == "afterglow" then
 			state.afterglow_t = state.afterglow_t + 1 / FPS
 
-			for _, s in ipairs(state.stars) do
-				s.phase = s.phase + s.speed
-				local bright = (math.sin(s.phase) + 1) / 2
+			-- The exact cinders each character became keep glowing faintly
+			-- right where they came to rest.
+			for _, p in ipairs(state.particles) do
+				p.twinkle_phase = p.twinkle_phase + p.twinkle_speed
+				local bright = (math.sin(p.twinkle_phase) + 1) / 2
 				if bright > 0.5 then
 					local idx = palette_index(1 - bright)
-					set_cell(grid, s.x, s.y, ".", HEAT_PALETTE[idx])
+					set_cell(grid, p.x, p.y, ".", HEAT_PALETTE[idx])
 				end
 			end
 
 			if state.afterglow_t >= AFTERGLOW_DURATION then
+				state.phase = "genesis"
+				state.genesis_t = 0
+				for _, p in ipairs(state.particles) do
+					p.genesis_delay = rng() * GENESIS_STAGGER_MAX
+					p.gx0, p.gy0 = p.x, p.y
+					p.frac = 0
+				end
+			end
+		elseif state.phase == "genesis" then
+			state.genesis_t = state.genesis_t + 1 / FPS
+			local all_done = true
+
+			for _, p in ipairs(state.particles) do
+				local local_t = math.max(0, state.genesis_t - p.genesis_delay)
+				local frac = clamp(local_t / GENESIS_DURATION, 0, 1)
+				p.frac = frac
+				if frac < 1 then
+					all_done = false
+				end
+				-- Gravity pulls hard at first, then eases the cinder gently home.
+				local ease = 1 - (1 - frac) ^ 3
+				p.x = lerp(p.gx0, p.c0, ease)
+				p.y = lerp(p.gy0, p.r0, ease)
+			end
+
+			for _, p in ipairs(state.particles) do
+				if p.frac >= 1 then
+					set_cell(grid, p.c0, p.r0, p.ch, p.hl0)
+				else
+					-- Reignites from a dim cinder to a hot flare right as it arrives.
+					local idx = palette_index(1 - p.frac)
+					set_cell(grid, p.x, p.y, p.ch, HEAT_PALETTE[idx])
+				end
+			end
+
+			if all_done then
+				U.restore(grid, state.original_snapshot)
+				state.phase = "genesis_hold"
+				state.hold_t = 0
+			end
+		elseif state.phase == "genesis_hold" then
+			state.hold_t = state.hold_t + 1 / FPS
+			U.restore(grid, state.original_snapshot)
+			if state.hold_t >= GENESIS_HOLD then
 				return false
 			end
 		end
